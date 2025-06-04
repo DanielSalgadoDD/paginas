@@ -68,24 +68,25 @@ if reteica_filter != "Todos":
 if factura_filter != "Todos":
     filtro &= (df["Factura"] == factura_filter)
 
-ciudades_filtradas = df[filtro]["Ciudad"]
+ciudades_filtradas = df[filtro]
 
 # --- Crear mapa ---
 m = folium.Map(location=[4.5, -74.1], zoom_start=6)
 
-# --- Agregar marcadores ---
-for ciudad in ciudades_filtradas:
+# --- Agregar marcadores con información detallada ---
+for _, row in ciudades_filtradas.iterrows():
+    ciudad = row["Ciudad"]
     if ciudad in coordenadas:
         lat, lon = coordenadas[ciudad]
+        popup_text = f"""<b>{ciudad}</b><br>
+        ICA: {row['ICA']}<br>
+        RETEICA: {row['RETEICA']}<br>
+        Factura: {row['Factura']}"""
         folium.Marker(
             location=[lat, lon],
-            popup=ciudad,
+            popup=folium.Popup(popup_text, max_width=250),
             icon=folium.Icon(color="blue", icon="info-sign")
         ).add_to(m)
 
-# --- Mostrar mapa ---
-st_folium(m, width=700, height=500)
-
-# --- Mostrar mapa ---
-st_folium(m, width=700, height=500)
-
+# --- Mostrar solo un mapa ---
+st_data = st_folium(m, width=700, height=500)
