@@ -1,11 +1,14 @@
 # app.py
+import streamlit as st
 import pandas as pd
 import folium
-from streamlit_folium import folium_static
-import streamlit as st
+from folium.plugins import MarkerCluster
+from streamlit_folium import st_folium
 from geopy.geocoders import Nominatim
 
-# Datos
+# ------------------------
+# Datos originales
+# ------------------------
 data = {
     "Ciudad": ["Bogota", "Cali", "Barranquilla", "Soledad", "Itagui", "Cartagena", "Guachene", "Becerril", "Yopal",
                "Medellin", "ANORÍ", "BELLO", "BUCARAMANGA", "BARRANCABERMEJA", "CHIA", "FLORIDABLANCA", "GIRÓN",
@@ -17,32 +20,52 @@ data = {
 }
 df = pd.DataFrame(data)
 
-# Obtener coordenadas
-geolocator = Nominatim(user_agent="mapa_app")
+# ------------------------
+# Geolocalización de ciudades
+# ------------------------
+geolocator = Nominatim(user_agent="my-app")
+
+@st.cache_data
 def obtener_coord(ciudad):
     try:
-        location = geolocator.geocode(f"{ciudad}, Colombia")
+        location = geolocator.geocode(ciudad + ", Colombia")
         if location:
-            return pd.Series([location.latitude, location.longitude])
+            return location.latitude, location.longitude
     except:
-        return pd.Series([None, None])
-    return pd.Series([None, None])
+        return None, None
+    return None, None
 
-df[["lat", "lon"]] = df["Ciudad"].apply(lambda x: obtener_coord(x.strip().upper()))
+# Obtener coordenadas
+df[['lat', 'lon']] = df['Ciudad'].apply(lambda x: pd.Series(obtener_coord(x)))
 
-# Interfaz
-st.title("Mapa Interactivo de Ciudades de Colombia")
-ica_min, ica_max = st.slider("Filtrar por ICA", 1, 6, (1, 6))
-df_filtrado = df[df["ICA"].between(ica_min, ica_max)]
+# ------------------------
+# Interfaz Streamlit
+# ------------------------
+st.title("Mapa de Ciudades de Colombia con ICA")
 
-# Mapa centrado en Colombia
-mapa = folium.Map(location=[4.5709, -74.2973], zoom_start=6)
-for _, row in df_filtrado.dropna(subset=["lat", "lon"]).iterrows():
+# Selector de ciudades
+ciudades_seleccionadas = st.multiselect(
+    "Selecciona ciudades para mostrar en el mapa:",
+    options=df['Ciudad'].tolist(),
+    default=df['Ciudad'].tolist()
+)
+
+# Filtrar datos
+df_filtrado = df[df['Ciudad'].isin(ciudades_seleccionadas)].dropna(subset=["lat", "lon"])
+
+# ------------------------
+# Crear mapa
+# ------------------------
+m = folium.Map(location=[4.5709, -74.2973], zoom_start=5.3)
+marker_cluster = MarkerCluster().add_to(m)
+
+for _, row in df_filtrado.iterrows():
     folium.Marker(
         location=[row["lat"], row["lon"]],
         popup=f"{row['Ciudad']}<br>ICA: {row['ICA']}",
-        icon=folium.Icon(color="blue", icon="info-sign")
-    ).add_to(mapa)
+        tooltip=row["Ciudad"]
+    ).add_to(marker_cluster)
 
-folium_static(mapa)
+# Mostrar mapa en Streamlit
+st_folium(m, width=700, height=500)
 
