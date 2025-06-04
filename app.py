@@ -47,21 +47,27 @@ df = pd.DataFrame(data)
 # --- Título ---
 st.title("🗺️ Mapa de Ciudades de Colombia según ICA, RETEICA y Factura")
 
-# --- Filtros ---
-ica_values = df["ICA"].dropna().unique()
-reteica_values = df["RETEICA"].dropna().unique()
-factura_values = df["Factura"].dropna().unique()
+# --- Preparar valores de filtros con opción "Todos" ---
+ica_values = ["Todos"] + sorted(df["ICA"].dropna().unique().tolist())
+reteica_values = ["Todos"] + sorted(df["RETEICA"].dropna().unique().tolist())
+factura_values = ["Todos"] + sorted(df["Factura"].dropna().unique().tolist())
 
-ica_filter = st.selectbox("Selecciona un valor de ICA:", sorted(ica_values))
-reteica_filter = st.selectbox("Selecciona un valor de RETEICA:", sorted(reteica_values))
-factura_filter = st.selectbox("Selecciona un valor de Factura:", sorted(factura_values))
+ica_filter = st.selectbox("Selecciona un valor de ICA:", ica_values)
+reteica_filter = st.selectbox("Selecciona un valor de RETEICA:", reteica_values)
+factura_filter = st.selectbox("Selecciona un valor de Factura:", factura_values)
 
 # --- Filtrar datos ---
-filtro = (
-    (df["ICA"] == ica_filter) &
-    (df["RETEICA"] == reteica_filter) &
-    (df["Factura"] == factura_filter)
-)
+filtro = pd.Series([True] * len(df))
+
+if ica_filter != "Todos":
+    filtro &= (df["ICA"] == ica_filter)
+
+if reteica_filter != "Todos":
+    filtro &= (df["RETEICA"] == reteica_filter)
+
+if factura_filter != "Todos":
+    filtro &= (df["Factura"] == factura_filter)
+
 ciudades_filtradas = df[filtro]["Ciudad"]
 
 # --- Crear mapa ---
@@ -76,6 +82,9 @@ for ciudad in ciudades_filtradas:
             popup=ciudad,
             icon=folium.Icon(color="blue", icon="info-sign")
         ).add_to(m)
+
+# --- Mostrar mapa ---
+st_folium(m, width=700, height=500)
 
 # --- Mostrar mapa ---
 st_folium(m, width=700, height=500)
