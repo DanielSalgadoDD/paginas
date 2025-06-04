@@ -61,7 +61,7 @@ filtro = pd.Series([True] * len(df))
 
 if ica_filter != "Todos":
     filtro &= (df["ICA"] == ica_filter)
-
+    
 if reteica_filter != "Todos":
     filtro &= (df["RETEICA"] == reteica_filter)
 
