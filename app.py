@@ -4,7 +4,6 @@ import folium
 from streamlit_folium import folium_static
 from folium.plugins import MarkerCluster
 from geopy.geocoders import Nominatim
-import time
 import random
 
 # Título de la aplicación
@@ -42,7 +41,7 @@ with tabs[0]:
 with tabs[1]:
     st.subheader("Ciudades con ICA")
 
-    # Datos de ejemplo (pegados desde la entrada del usuario)
+    # Datos de ejemplo
     data = """
 Ciudad	ICA	RETEICA / autorretencion	Factura	ALUMBRADO	EMPRESA
 Bogota	6	6	NO	NO	Mexichem
@@ -86,27 +85,33 @@ Guachene	1	6	NO	NO	CELTA
     from io import StringIO
     df = pd.read_csv(StringIO(data), sep="\t")
 
-    # Opciones de filtros
-    ica_options = df['ICA'].unique()
-    reteica_options = df['RETEICA / autorretencion'].unique()
-    factura_options = df['Factura'].unique()
+    # ------------------ Filtros ------------------
 
-    # Filtros en la barra lateral
-    ica_filter = st.sidebar.selectbox("Filtrar por ICA", options=ica_options)
-    reteica_filter = st.sidebar.selectbox("Filtrar por RETEICA", options=reteica_options)
-    factura_filter = st.sidebar.selectbox("Filtrar por Factura", options=factura_options)
+    ica_options = sorted(df['ICA'].astype(str).unique())
+    reteica_options = sorted(df['RETEICA / autorretencion'].astype(str).unique())
+    factura_options = sorted(df['Factura'].astype(str).unique())
 
-    # Aplicar filtros al DataFrame
-    df_filtrado = df[
-        (df['ICA'] == ica_filter) &
-        (df['RETEICA / autorretencion'] == reteica_filter) &
-        (df['Factura'] == factura_filter)
-    ]
+    # Filtros en la barra lateral con "Todos"
+    ica_filter = st.sidebar.multiselect("Filtrar por ICA", options=["Todos"] + ica_options, default=["Todos"])
+    reteica_filter = st.sidebar.multiselect("Filtrar por RETEICA", options=["Todos"] + reteica_options, default=["Todos"])
+    factura_filter = st.sidebar.multiselect("Filtrar por Factura", options=["Todos"] + factura_options, default=["Todos"])
 
-    # Mostrar tabla con los resultados filtrados
+    # Aplicar filtros
+    df_filtrado = df.copy()
+
+    if "Todos" not in ica_filter:
+        df_filtrado = df_filtrado[df_filtrado['ICA'].astype(str).isin(ica_filter)]
+
+    if "Todos" not in reteica_filter:
+        df_filtrado = df_filtrado[df_filtrado['RETEICA / autorretencion'].astype(str).isin(reteica_filter)]
+
+    if "Todos" not in factura_filter:
+        df_filtrado = df_filtrado[df_filtrado['Factura'].astype(str).isin(factura_filter)]
+
+    # Mostrar tabla filtrada
     st.dataframe(df_filtrado)
 
-    # Geolocalizador con cache para no exceder límite de uso
+    # ------------------ Geolocalizador con caché ------------------
     @st.cache_data(show_spinner=False)
     def geolocalizar_ciudad(ciudad):
         geolocator = Nominatim(user_agent="mi_app_geocoder")
@@ -118,22 +123,19 @@ Guachene	1	6	NO	NO	CELTA
             return None
         return None
 
-    # Crear el mapa
+    # ------------------ Mapa ------------------
     mapa = folium.Map(location=[5.0, -74.0], zoom_start=6)
     marker_cluster = MarkerCluster().add_to(mapa)
 
-    # Colores por empresa
     color_por_empresa = {
         "Mexichem": "darkblue",
         "PDO": "lightblue",
         "CELTA": "red"
     }
 
-    # Contador para ajustar coordenadas si hay duplicados
     ciudad_empresa_count = {}
 
-    # Agregar marcadores
-    for idx, row in df_filtrado.iterrows():
+    for _, row in df_filtrado.iterrows():
         ciudad = row['Ciudad'].title()
         empresa = row['EMPRESA']
         color = color_por_empresa.get(empresa.upper(), "gray")
@@ -143,7 +145,6 @@ Guachene	1	6	NO	NO	CELTA
         coords = geolocalizar_ciudad(ciudad)
 
         if coords:
-            # Ajustar ligeramente lat/lon si hay múltiples puntos en la misma ciudad
             lat_offset = (random.random() - 0.5) * 0.02
             lon_offset = (random.random() - 0.5) * 0.02
             coords[0] += lat_offset * count
@@ -158,5 +159,5 @@ Guachene	1	6	NO	NO	CELTA
 
         ciudad_empresa_count[ciudad] = count + 1
 
-    # Mostrar mapa
     folium_static(mapa)
+
