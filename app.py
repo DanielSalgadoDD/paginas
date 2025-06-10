@@ -6,10 +6,10 @@ from folium.plugins import MarkerCluster
 from geopy.geocoders import Nominatim
 
 # Título de la app
-st.title("Mapa Tributario por Empresa")
+st.title("Tributación en Colombia")
 
 # Crear pestañas
-tabs = st.tabs(["🏢 Bases Centrales", "📍 Ciudades ICA"])
+tabs = st.tabs(["🏢 Bases Centrales", "📍 Tributación por empresa"])
 
 # ------------------ PESTAÑA 1 ------------------
 with tabs[0]:
