@@ -1,196 +1,162 @@
+import streamlit as st
 import pandas as pd
 import folium
+from streamlit_folium import folium_static
 from folium.plugins import MarkerCluster
-import streamlit as st
-from streamlit_folium import st_folium
-import requests
-import numpy as np
+from geopy.geocoders import Nominatim
+import time
+import random
 
-# -------------------------
-# Datos originales
-# -------------------------
-data = {
-    "Ciudad": ["Bogota", "Cali", "Barranquilla", "Soledad", "Itagui", "Cartagena", "Guachene", "Becerril", "Yopal",
-               "Medellin", "ANORÍ", "BELLO", "BUCARAMANGA", "BARRANCABERMEJA", "CHIA", "FLORIDABLANCA", "GIRÓN",
-               "MANIZALEZ", "MONTERIA", "MOSQUERA", "PALMIRA", "PIEDECUESTA", "PEREIRA", "RIO NEGRO SANTANDER",
-               "RIO ORO CESAR", "SOGAMOSO", "SOACHA", "TOCANCIPA"],
-    "ICA": [6, 6, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    "RETEICA / autorretencion": [6, 6, 12, 12, 6, 6, 6, 6, 6, 0] + [None]*18,
-    "Factura": [None, None, None, None, 12, None, None, None, None, None] + [None]*18
-}
-df = pd.DataFrame(data)
-df["ICA"] = pd.to_numeric(df["ICA"], errors='coerce').astype("Int64")
-df["RETEICA / autorretencion"] = pd.to_numeric(df["RETEICA / autorretencion"], errors='coerce').astype("Int64")
-df["Factura"] = pd.to_numeric(df["Factura"], errors='coerce').astype("Int64")
+# Título de la aplicación
+st.title("Mapa Tributario por Empresa")
 
-# -------------------------
-# Empresa por ciudad
-# -------------------------
-empresa_por_ciudad = {
-    "Bogota": "MEXICHEM",
-    "Cali": "MEXICHEM",
-    "Barranquilla": "MEXICHEM",
-    "Soledad": "MEXICHEM",
-    "Itagui": "CELTA",
-    "Cartagena": "MEXICHEM",
-    "Guachene": "PDO",
-    "Becerril": "PDO",
-    "Yopal": "PDO",
-    "Medellin": "CELTA",
-    "ANORÍ": "CELTA",
-    "BELLO": "CELTA",
-    "BUCARAMANGA": "CELTA",
-    "BARRANCABERMEJA": "CELTA",
-    "CHIA": "MEXICHEM",
-    "FLORIDABLANCA": "CELTA",
-    "GIRÓN": "CELTA",
-    "MANIZALEZ": "CELTA",
-    "MONTERIA": "PDO",
-    "MOSQUERA": "MEXICHEM",
-    "PALMIRA": "PDO",
-    "PIEDECUESTA": "CELTA",
-    "PEREIRA": "PDO",
-    "RIO NEGRO SANTANDER": "PDO",
-    "RIO ORO CESAR": "PDO",
-    "SOGAMOSO": "PDO",
-    "SOACHA": "MEXICHEM",
-    "TOCANCIPA": "MEXICHEM"
-}
-df["Empresa"] = df["Ciudad"].apply(lambda c: empresa_por_ciudad.get(c.strip().upper().title(), "OTRA"))
-
-# -------------------------
-# Coordenadas por ciudad
-# -------------------------
-coordenadas_fijas = {
-    "Bogota": (4.7110, -74.0721),
-    "Cali": (3.4516, -76.5320),
-    "Barranquilla": (10.9685, -74.7813),
-    "Soledad": (10.9184, -74.7649),
-    "Itagui": (6.1719, -75.6111),
-    "Cartagena": (10.3910, -75.4794),
-    "Guachene": (3.0315, -76.3927),
-    "Becerril": (9.7035, -73.2793),
-    "Yopal": (5.3378, -72.3959),
-    "Medellin": (6.2442, -75.5812),
-    "ANORÍ": (7.1895, -75.1298),
-    "BELLO": (6.3373, -75.5582),
-    "BUCARAMANGA": (7.1193, -73.1227),
-    "BARRANCABERMEJA": (7.0653, -73.8545),
-    "CHIA": (4.8581, -74.0583),
-    "FLORIDABLANCA": (7.0631, -73.0877),
-    "GIRÓN": (7.0688, -73.1698),
-    "MANIZALEZ": (5.0703, -75.5138),
-    "MONTERIA": (8.7489, -75.8814),
-    "MOSQUERA": (4.7084, -74.2317),
-    "PALMIRA": (3.5399, -76.3033),
-    "PIEDECUESTA": (7.0703, -73.0514),
-    "PEREIRA": (4.8143, -75.6946),
-    "RIO NEGRO SANTANDER": (7.3892, -73.1745),
-    "RIO ORO CESAR": (8.2637, -73.3151),
-    "SOGAMOSO": (5.7146, -72.9334),
-    "SOACHA": (4.5786, -74.2144),
-    "TOCANCIPA": (4.6965, -73.9155),
-}
-coordenadas_fijas = {k.upper(): v for k, v in coordenadas_fijas.items()}
-df[["lat", "lon"]] = df["Ciudad"].apply(lambda ciudad: pd.Series(coordenadas_fijas.get(ciudad.strip().upper(), (None, None))))
-
-# -------------------------
-# GeoJSON de Colombia
-# -------------------------
-url_geojson = "https://raw.githubusercontent.com/johan/world.geo.json/master/countries/COL.geo.json"
-colombia_geojson = requests.get(url_geojson).json()
-
-# -------------------------
-# Streamlit App
-# -------------------------
-st.set_page_config(layout="wide")
-st.title("Visualización de ICA por ciudad")
+# Crear pestañas
 tabs = st.tabs(["🏢 Bases Centrales", "📍 Ciudades ICA"])
 
-# -------------------------
-# Tab 1: Bases centrales
-# -------------------------
+# ------------------ PESTAÑA 1 ------------------
 with tabs[0]:
     st.subheader("Bases centrales")
-    mapa_bases = folium.Map(location=[4.5709, -74.2973], zoom_start=6, tiles="CartoDB positron")
-    folium.GeoJson(colombia_geojson, style_function=lambda x: {'fillColor': '#ffffff00', 'color': 'black', 'weight': 2}).add_to(mapa_bases)
 
-    bases = {
-        "Bogotá": ("MEXICHEM", 4.7110, -74.0721),
-        "Guachené": ("PDO", 3.0315, -76.3927),
-        "Medellín": ("CELTA", 6.2442, -75.5812),
+    # Diccionario con datos fijos
+    empresas = {
+        "MEXICHEM": {"location": [4.60971, -74.08175], "color": "darkblue"},
+        "PDO": {"location": [3.0326, -76.4081], "color": "lightblue"},
+        "CELTA": {"location": [6.2442, -75.5812], "color": "red"},
     }
 
-    colores_empresa = {
-        "MEXICHEM": "darkblue",
-        "PDO": "lightblue",
-        "CELTA": "red"
-    }
+    # Crear el mapa centrado en Colombia
+    mapa_bases = folium.Map(location=[5.0, -74.0], zoom_start=6)
 
-    for ciudad, (empresa, lat, lon) in bases.items():
-        color = colores_empresa.get(empresa.upper(), "gray")
-        popup = f"<b>{empresa}</b><br>{ciudad}"
+    # Agregar los marcadores
+    for nombre, info in empresas.items():
         folium.Marker(
-            location=[lat, lon],
-            popup=popup,
-            tooltip=empresa,
-            icon=folium.Icon(color=color, icon="building")
+            location=info["location"],
+            popup=nombre,
+            icon=folium.Icon(color=info["color"])
         ).add_to(mapa_bases)
 
-    st_folium(mapa_bases, width=1000, height=600)
+    # Mostrar el mapa en Streamlit
+    folium_static(mapa_bases)
 
-# -------------------------
-# Tab 2: Ciudades ICA
-# -------------------------
+# ------------------ PESTAÑA 2 ------------------
 with tabs[1]:
     st.subheader("Ciudades con ICA")
-    col1, col2, col3 = st.columns(3)
 
-    ica_val = col1.selectbox("Filtrar por ICA", options=["Todos"] + sorted(df["ICA"].dropna().astype(str).unique().tolist()))
-    reteica_val = col2.selectbox("Filtrar por RETEICA", options=["Todos"] + sorted(df["RETEICA / autorretencion"].dropna().astype(str).unique().tolist()))
-    factura_val = col3.selectbox("¿Tiene Factura?", options=["Todos", "Sí", "No"])
+    # Datos de ejemplo (pegados desde la entrada del usuario)
+    data = """
+Ciudad	ICA	RETEICA / autorretencion	Factura	ALUMBRADO	EMPRESA
+Bogota	6	6	NO	NO	Mexichem
+Cali	6	6	NO	NO	Mexichem
+Barranquilla	1	12	NO	NO	Mexichem
+Soledad	1	12	NO	NO	Mexichem
+Itagui	1	6	12	NO	Mexichem
+Cartagena	1	6	NO	NO	Mexichem
+Guachene	1	6	NO	NO	Mexichem
+Becerril	1	6	NO	NO	Mexichem
+Yopal	1	6	NO	NO	Mexichem
+Medellin	1	NO	NO	NO	Mexichem
+ANORÍ	1	NO	NO	NO	Mexichem
+BELLO	1	NO	NO	NO	Mexichem
+BUCARAMANGA	1	NO	NO	NO	Mexichem
+BARRANCABERMEJA	1	NO	NO	NO	Mexichem
+CHIA	1	NO	NO	NO	Mexichem
+FLORIDABLANCA	1	NO	NO	NO	Mexichem
+GIRÓN	1	NO	NO	NO	Mexichem
+MANIZALEZ	1	NO	NO	NO	Mexichem
+MONTERIA	1	NO	NO	NO	Mexichem
+MOSQUERA	1	NO	NO	NO	Mexichem
+PALMIRA	1	NO	NO	NO	Mexichem
+PIEDECUESTA	1	NO	NO	NO	Mexichem
+PEREIRA	1	NO	NO	NO	Mexichem
+RIO NEGRO SANTANDER	1	NO	NO	NO	Mexichem
+RIO ORO CESAR	1	NO	NO	NO	Mexichem
+SOGAMOSO	1	NO	NO	NO	Mexichem
+SOACHA	1	NO	NO	NO	Mexichem
+TOCANCIPA	1	NO	NO	NO	Mexichem
+Bogota	0	6	NO	NO	PDO
+Cali	0	6	NO	NO	PDO
+Barranquilla	0	12	NO	NO	PDO
+Guachene	1	6	NO	24	PDO
+Bogota	6	6	NO	NO	CELTA
+Cali	6	6	NO	NO	CELTA
+Barranquilla	1	12	NO	NO	CELTA
+Soledad	1	12	NO	NO	CELTA
+Guachene	1	6	NO	NO	CELTA
+"""
+    from io import StringIO
+    df = pd.read_csv(StringIO(data), sep="\t")
 
-    df_filtrado = df.copy()
+    # Opciones de filtros
+    ica_options = df['ICA'].unique()
+    reteica_options = df['RETEICA / autorretencion'].unique()
+    factura_options = df['Factura'].unique()
 
-    if ica_val != "Todos":
-        df_filtrado = df_filtrado[df_filtrado["ICA"] == int(ica_val)]
-    if reteica_val != "Todos":
-        df_filtrado = df_filtrado[df_filtrado["RETEICA / autorretencion"] == int(reteica_val)]
-    if factura_val != "Todos":
-        df_filtrado = df_filtrado[df_filtrado["Factura"].notna()] if factura_val == "Sí" else df_filtrado[df_filtrado["Factura"].isna()]
+    # Filtros en la barra lateral
+    ica_filter = st.sidebar.selectbox("Filtrar por ICA", options=ica_options)
+    reteica_filter = st.sidebar.selectbox("Filtrar por RETEICA", options=reteica_options)
+    factura_filter = st.sidebar.selectbox("Filtrar por Factura", options=factura_options)
 
-    mapa = folium.Map(location=[4.5709, -74.2973], zoom_start=6, tiles="CartoDB positron")
-    folium.GeoJson(colombia_geojson, style_function=lambda x: {'fillColor': '#ffffff00', 'color': 'black', 'weight': 2}).add_to(mapa)
+    # Aplicar filtros al DataFrame
+    df_filtrado = df[
+        (df['ICA'] == ica_filter) &
+        (df['RETEICA / autorretencion'] == reteica_filter) &
+        (df['Factura'] == factura_filter)
+    ]
+
+    # Mostrar tabla con los resultados filtrados
+    st.dataframe(df_filtrado)
+
+    # Geolocalizador con cache para no exceder límite de uso
+    @st.cache_data(show_spinner=False)
+    def geolocalizar_ciudad(ciudad):
+        geolocator = Nominatim(user_agent="mi_app_geocoder")
+        try:
+            location = geolocator.geocode(f"{ciudad}, Colombia", timeout=10)
+            if location:
+                return [location.latitude, location.longitude]
+        except:
+            return None
+        return None
+
+    # Crear el mapa
+    mapa = folium.Map(location=[5.0, -74.0], zoom_start=6)
     marker_cluster = MarkerCluster().add_to(mapa)
 
-    colores_empresa = {
-        "MEXICHEM": "darkblue",
+    # Colores por empresa
+    color_por_empresa = {
+        "Mexichem": "darkblue",
         "PDO": "lightblue",
         "CELTA": "red"
     }
 
-    ciudad_counts = df_filtrado["Ciudad"].value_counts()
-    desplazamientos = np.linspace(-0.02, 0.02, ciudad_counts.max())
-    desplazador = {}
+    # Contador para ajustar coordenadas si hay duplicados
+    ciudad_empresa_count = {}
 
-    for _, row in df_filtrado.iterrows():
-        ciudad = row["Ciudad"]
-        lat, lon = row["lat"], row["lon"]
-        empresa = row["Empresa"]
-        if pd.notna(lat) and pd.notna(lon):
-            count = desplazador.get(ciudad, 0)
-            lat_offset = lat + desplazamientos[count]
-            lon_offset = lon + desplazamientos[count]
-            desplazador[ciudad] = count + 1
+    # Agregar marcadores
+    for idx, row in df_filtrado.iterrows():
+        ciudad = row['Ciudad'].title()
+        empresa = row['EMPRESA']
+        color = color_por_empresa.get(empresa.upper(), "gray")
 
-            popup = f"<b>{ciudad}</b><br>Empresa: {empresa}<br>ICA: {row['ICA']}<br>RETEICA: {row['RETEICA / autorretencion']}<br>Factura: {row['Factura']}"
-            color = colores_empresa.get(empresa.upper(), "gray")
+        key = (ciudad, empresa)
+        count = ciudad_empresa_count.get(ciudad, 0)
+        coords = geolocalizar_ciudad(ciudad)
 
+        if coords:
+            # Ajustar ligeramente lat/lon si hay múltiples puntos en la misma ciudad
+            lat_offset = (random.random() - 0.5) * 0.02
+            lon_offset = (random.random() - 0.5) * 0.02
+            coords[0] += lat_offset * count
+            coords[1] += lon_offset * count
+
+            popup_text = f"{ciudad} - {empresa}"
             folium.Marker(
-                location=[lat_offset, lon_offset],
-                popup=popup,
-                tooltip=empresa,
-                icon=folium.Icon(color=color, icon="info-sign")
+                location=coords,
+                popup=popup_text,
+                icon=folium.Icon(color=color)
             ).add_to(marker_cluster)
 
-    st_folium(mapa, width=1000, height=600)
+        ciudad_empresa_count[ciudad] = count + 1
+
+    # Mostrar mapa
+    folium_static(mapa)
