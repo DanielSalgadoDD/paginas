@@ -128,7 +128,7 @@ Guachene	1	6	NO	NO	CELTA
         "CELTA": "red"
     }
 
-        ciudades_marcadas = set()
+    ciudades_marcadas = set()
     for _, row in df_filtrado.iterrows():
         ciudad = row['Ciudad']
         empresa = row['EMPRESA']
