@@ -128,7 +128,7 @@ Guachene	1	6	NO	NO	CELTA
         "CELTA": "red"
     }
 
-    ciudades_marcadas = set()
+        ciudades_marcadas = set()
     for _, row in df_filtrado.iterrows():
         ciudad = row['Ciudad']
         empresa = row['EMPRESA']
@@ -138,10 +138,17 @@ Guachene	1	6	NO	NO	CELTA
         if key not in ciudades_marcadas:
             coords = geolocalizar_ciudad(ciudad)
             if coords:
-                popup = f"{ciudad} - {empresa}"
+                popup_info = f"""
+                <b>Ciudad:</b> {ciudad}<br>
+                <b>Empresa:</b> {empresa}<br>
+                <b>ICA:</b> {row['ICA']}<br>
+                <b>RETEICA:</b> {row['RETEICA / autorretencion']}<br>
+                <b>Factura:</b> {row['Factura']}<br>
+                <b>Alumbrado:</b> {row['ALUMBRADO']}
+                """
                 folium.Marker(
                     location=coords,
-                    popup=popup,
+                    popup=folium.Popup(popup_info, max_width=300),
                     icon=folium.Icon(color=color)
                 ).add_to(marker_cluster)
                 ciudades_marcadas.add(key)
