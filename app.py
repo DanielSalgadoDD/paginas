@@ -33,7 +33,7 @@ with tabs[0]:
 
 # ------------------ PESTAÑA 2 ------------------
 with tabs[1]:
-    st.subheader("Ciudades con ICA")
+    st.subheader("Tributación por empresa")
 
     # ------------------ Datos ------------------
     data = """
