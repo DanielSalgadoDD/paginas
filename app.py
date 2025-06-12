@@ -17,7 +17,7 @@ with tabs[0]:
     empresas = {
         "MEXICHEM": {"location": [4.60971, -74.08175], "color": "darkblue"},
         "PDO": {"location": [3.0326, -76.4081], "color": "lightblue"},
-        "CELTA": {"location": [10.9639, -74.7964], "color": "red"},
+        "CELTA": {"location": [10.9184, -74.7679], "color": "red"},
     }
 
     mapa_bases = folium.Map(location=[5.0, -74.0], zoom_start=6)
